@@ -1,4 +1,5 @@
 import { loadCartridge, cartridgeTypeDict, newLicenseeCodeDict, oldLicenseeCodeDict, ramSizeDict , romSizeDict } from "./cart.js";
+import { cpu } from "./cpu.js";
 
 export function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -54,6 +55,8 @@ export async function emulatorRun(romFile) {
     console.log("Licensed by: " + licensedBy);
     console.log("ROM Version: " + romVerison);
 
+
+
     // do CheckSum
     var checksum = 0;
     for (var i = 0x0134; i <= 0x014C; i++) {
@@ -66,17 +69,21 @@ export async function emulatorRun(romFile) {
         return -1;
     }
 
+    // make a new CPU
+    lavishEmulator.cpu = new cpu();
+
     // makes a game loop, which will run the emulator
     while (lavishEmulator.running) {
         // if the emulator is paused, then don't run the emulator
         if (lavishEmulator.paused) {
-            await sleep(10);
+            await sleep(2000);
             lavishEmulator.paused = false;
             continue;
         }
 
         if (lavishEmulator.ticks % 10 == 0) {
             lavishEmulator.paused = true;
+            lavishEmulator.cpu.cpuStep();
             // console.log("updating screen")
         }
 
