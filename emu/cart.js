@@ -22,11 +22,11 @@ export class cart {
 // returns an 8 bit value, reads a 16bit address
 export function cartRead(address) {
     // only handles rom rn
-    console.log("Read: " + '0x' + lavishEmulator.romData.getUint8(address).toString(16).toUpperCase());
+    //console.log("Read: " + '0x' + lavishEmulator.romData.getUint8(address).toString(16).toUpperCase());
     // is .toString(16) in the end to convert the deciaml number holded in the Uint8Array to hex
     // as the Uint8Array only holds decimal numbers
     // FF is highest in 8 bit, and you only return two
-    return '0x' + lavishEmulator.romData.getUint8(address).toString(16).toUpperCase();
+    return '0x' + lavishEmulator.romData.getUint8(address).toString(16).toUpperCase().padStart(2, '0');
 }
 
 

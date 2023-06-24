@@ -76,7 +76,7 @@ export async function emulatorRun(romFile) {
     while (lavishEmulator.running) {
         // if the emulator is paused, then don't run the emulator
         if (lavishEmulator.paused) {
-            await sleep(2000);
+            await sleep(10);
             lavishEmulator.paused = false;
             continue;
         }

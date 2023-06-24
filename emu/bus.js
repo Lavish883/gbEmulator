@@ -26,6 +26,7 @@ export function busRead(address){
     }
 
 
+    alert("Out of bounds, have not implemented memory for address: " + address.toString(16).toUpperCase());
     return -1;
 }
 
@@ -35,4 +36,19 @@ export function busWrite(address, value){
         cartWrite(address, value);
         return;
     }
+}
+
+export function busRead16(address){
+    // read the two 8bit values and combine them into a 16bit value
+    var lowByte = busRead(address);
+    var highByte = busRead(address + 1);
+
+    return lowByte | (highByte << 8);
+}
+
+
+// reads a 16bit address and returns a 16bit value
+export function busWrite16(address , value){
+    busWrite(address + 1, (value >> 8) & 0xFF);
+    busWrite(address, value & 0xFF);
 }
