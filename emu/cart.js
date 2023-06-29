@@ -35,7 +35,7 @@ export function cartRead(address) {
 
 
 export function cartWrite(address, value) {
-
+    // only handles rom rn
 }
 
 

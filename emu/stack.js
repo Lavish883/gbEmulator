@@ -3,9 +3,8 @@ import { busRead, busWrite, busWrite16, busRead16 } from "./bus.js";
 
 // 8 bit
 export function stackPop() {
+    lavishEmulator.cpu.cpuSetRegister('SP', lavishEmulator.cpu.cpuReadRegister('SP') + 1);
     let address = lavishEmulator.cpu.cpuReadRegister('SP');
-    address += 1;
-    //alert('SP: ' + address)
     return busRead(address);
 }
 // 16 bit
@@ -17,9 +16,8 @@ export function stackPop16() {
 }
 // 8 bit
 export function stackPush(data) {
-    lavishEmulator.cpu.registers.SP--;
-    console.log('Data: ' +  data, 'SP: ' + lavishEmulator.cpu.registers.SP)
-    busWrite(lavishEmulator.cpu.registers.SP, data)
+    lavishEmulator.cpu.cpuSetRegister('SP', lavishEmulator.cpu.cpuReadRegister('SP') - 1);   
+    busWrite(lavishEmulator.cpu.cpuReadRegister('SP'), data)
 }
 // 16 bit
 export function stackPush16(data) {

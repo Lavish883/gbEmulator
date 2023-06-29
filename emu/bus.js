@@ -27,8 +27,8 @@ export function busRead(address){
         return cartRead(address);
     } else if (address < 0xA000){
         // Char Map/Tile Data, TO DO with PPU
-        return;
-        throw new Error("Not implemented yet");
+        //return "char data";
+        throw new Error("Not implemented Char Map/Tile Data yet");
     } else if (address < 0xC000){
         // Cartridge RAM
         return cartRead(address);
