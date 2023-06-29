@@ -1,5 +1,6 @@
 import { loadCartridge, cartridgeTypeDict, newLicenseeCodeDict, oldLicenseeCodeDict, ramSizeDict , romSizeDict } from "./cart.js";
 import { cpu } from "./cpu.js";
+import { ram } from "./ram.js";
 
 export function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -71,12 +72,14 @@ export async function emulatorRun(romFile) {
 
     // make a new CPU
     lavishEmulator.cpu = new cpu();
+    // make a new RAM
+    lavishEmulator.ram = new ram();
 
     // makes a game loop, which will run the emulator
     while (lavishEmulator.running) {
         // if the emulator is paused, then don't run the emulator
         if (lavishEmulator.paused) {
-            await sleep(10);
+            await sleep(200);
             lavishEmulator.paused = false;
             continue;
         }

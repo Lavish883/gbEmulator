@@ -1,11 +1,23 @@
 import { busRead, busWrite , busRead16 , busWrite16 } from "./bus.js";
 import { instructions } from "./instructions.js";
+import { stackPop, stackPop16, stackPush, stackPush16 } from "./stack.js";
 
 // outisde the class cpu
 // to refrence don't use this. just use lavishEmulator.cpu
 // cause otherwise it will be undefined
 class cpuUtilities {
     constructor() {
+
+    }
+    getSigned8BitValue(value) {
+        // get the signed value of an 8 bit value
+        // get first bit , if 1 then negative, 0 then positive
+        let firstBit = lavishEmulator.cpu.getBit(value, 7);
+        if (firstBit == 1) {
+            console.log("negative");
+            return value - 256;
+        }
+        return value;
 
     }
     reverseByte(byte) {
@@ -61,10 +73,10 @@ class cpuUtilities {
         }
 
         switch (lavishEmulator.cpu.currentInstruction.condition) {
-            case C: return cFlag;
-            case NC: return !cFlag;
-            case Z: return zFlag;
-            case NZ: return !zFlag;
+            case "C": return cFlag;
+            case "NC": return !cFlag;
+            case "Z": return zFlag;
+            case "NZ": return !zFlag;
         }
 
         return false;
@@ -110,10 +122,20 @@ class cpuInstructionsProcess extends cpuUtilities {
 
         this.processFunctions = {
             "LD": this.processLD,
+            "LDH": this.processLDH,
             "JMP": this.processJMP,
             "NOP": this.processNOP,
             "DI": this.processDI,
             "XOR": this.processXOR,
+            "POP": this.processPOP,
+            "PUSH": this.processPUSH,
+            "CALL": this.processCALL,
+            "JR": this.processJR,
+            "RET": this.processRET,
+            "RETI": this.processRETI,
+            "RST": this.processRST,
+            "INC": this.processINC,
+            "DEC": this.processDEC,
         }
     }
     // To do: implement all the instructions
@@ -123,13 +145,7 @@ class cpuInstructionsProcess extends cpuUtilities {
         if (cpu.destinationIsMemory){
             // Ld (BC), A
             // If 16 bit register
-            if (cpu.currentInstruction.register2 == "AF" || 
-                cpu.currentInstruction.register2 == "BC" || 
-                cpu.currentInstruction.register2 == "DE" || 
-                cpu.currentInstruction.register2 == "HL" ||
-                cpu.currentInstruction.register2 == "SP" ||
-                cpu.currentInstruction.register2 == "PC"
-                ) {
+            if (lavishEmulator.cpu.is16BitRegister(lavishEmulator.cpu.currentInstruction.register2)) {
                 lavishEmulator.emuCycles(1);
                 busWrite16(cpu.memoryDestination, cpu.fetchedData)
             } else {
@@ -152,21 +168,174 @@ class cpuInstructionsProcess extends cpuUtilities {
         cpu.cpuSetRegister(cpu.currentInstruction.register1, this.fetchedData)
     }
     processJMP() {
-        var condition = lavishEmulator.cpu.checkCondition();
-        if (condition) {
-            lavishEmulator.cpu.registers.PC = lavishEmulator.cpu.fetchedData;
-            //console.log("JMP to " + lavishEmulator.cpu.fetchedData);
-            lavishEmulator.emuCycles(1);
-        }
+        lavishEmulator.cpu.goToAddress(lavishEmulator.cpu.fetchedData, false);
+    }
+    // jump relative
+    processJR(){
+        // get only the 8 bit value
+        let signedValue = lavishEmulator.cpu.getSigned8BitValue(lavishEmulator.cpu.fetchedData);
+        //console.log('signedValue:' + signedValue);
+        let address = lavishEmulator.cpu.registers.PC + parseInt(signedValue);
+        //console.log('address:' + address);
+        lavishEmulator.cpu.goToAddress(address, false);
     }
     processNOP() {
     }
     processDI() {
-        lavishEmulator.cpu.IntreuptMasterEnabled = false;
+        lavishEmulator.cpu.InterruptMasterEnabled = false;
+    }
+    processINC() {
+        var value = lavishEmulator.cpu.cpuReadRegister(lavishEmulator.cpu.currentInstruction.register1) + 1;
+
+        if (lavishEmulator.cpu.is16BitRegister(lavishEmulator.cpu.currentInstruction.register1)){
+            lavishEmulator.emuCycles(1);
+        }
+        // Do this for HL and address mode MR
+        if (lavishEmulator.cpu.currentInstruction.register1 == "HL" &&
+            lavishEmulator.cpu.currentInstruction.addressMode == "MR"
+            ){
+            value = busRead(lavishEmulator.cpu.cpuReadRegister("HL")) + 1;
+            value &= 0xFF;
+            
+            busWrite(lavishEmulator.cpu.cpuReadRegister("HL"), value);
+        } else {
+            lavishEmulator.cpu.cpuSetRegister(lavishEmulator.cpu.currentInstruction.register1, value);
+            value = lavishEmulator.cpu.cpuReadRegister(lavishEmulator.cpu.currentInstruction.register1);
+        }
+
+        // check if we need to set cpu flags or not, by checking bottom 2 bits
+        if ((lavishEmulator.cpu.currentOpcode & 0x03) == 0x03){
+            return;
+        }
+        // need to set cpu flags
+        lavishEmulator.cpu.setFlags(
+            value == 0,
+            0,
+            (value & 0x0F) == 0,
+            -1
+        )
+    }
+    processDEC() {
+        var value = lavishEmulator.cpu.cpuReadRegister(lavishEmulator.cpu.currentInstruction.register1) - 1;
+
+        if (lavishEmulator.cpu.is16BitRegister(lavishEmulator.cpu.currentInstruction.register1)){
+            lavishEmulator.emuCycles(1);
+        }
+        // Do this for HL and address mode MR
+        if (lavishEmulator.cpu.currentInstruction.register1 == "HL" &&
+            lavishEmulator.cpu.currentInstruction.addressMode == "MR"
+            ){
+            value = busRead(lavishEmulator.cpu.cpuReadRegister("HL")) - 1;            
+            busWrite(lavishEmulator.cpu.cpuReadRegister("HL"), value);
+        } else {
+            lavishEmulator.cpu.cpuSetRegister(lavishEmulator.cpu.currentInstruction.register1, value);
+            value = lavishEmulator.cpu.cpuReadRegister(lavishEmulator.cpu.currentInstruction.register1);
+        }
+
+        // check if we need to set cpu flags or not, by checking bottom 2 bits
+        if ((lavishEmulator.cpu.currentOpcode & 0x0B) == 0x0B){
+            return;
+        }
+        // need to set cpu flags
+        lavishEmulator.cpu.setFlags(
+            value == 0,
+            1,
+            (value & 0x0F) == 0x0F,
+            -1
+        )
+
     }
     processXOR() {
         lavishEmulator.cpu.registers.A ^= lavishEmulator.cpu.fetchedData & 0xFF;
         lavishEmulator.cpu.setFlags(lavishEmulator.cpu.registers.A == 0, 0, 0, 0);
+    }
+    processLDH(){
+        if (lavishEmulator.cpu.currentInstruction.register1 == "A"){
+            lavishEmulator.cpu.cpuSetRegister(lavishEmulator.cpu.currentInstruction.register1, 
+                busRead(0xFF00 | lavishEmulator.cpu.fetchedData));
+        } else {
+            busWrite(0xFF00 | lavishEmulator.cpu.fetchedData, lavishEmulator.cpu.cpuReadRegister("A")); 
+        }
+
+        lavishEmulator.emuCycles(1);
+    }
+    processPOP() {
+        let lowByte = stackPop();
+        lavishEmulator.emuCycles(1);
+        let highByte = stackPop(); 
+        lavishEmulator.emuCycles(1);
+
+        let value = (highByte << 8) | lowByte;
+
+        lavishEmulator.cpu.cpuSetRegister(lavishEmulator.cpu.currentInstruction.register1, value);
+
+        if (lavishEmulator.cpu.currentInstruction.register1 == "AF"){
+            lavishEmulator.cpu.setIERegister(lavishEmulator.cpu.currentInstruction.register1, value & 0xFFF0);
+        }
+    }
+    processPUSH(){
+        let highByte = (lavishEmulator.cpu.cpuReadRegister(lavishEmulator.cpu.currentInstruction.register1) >> 8) & 0xFF; 
+        lavishEmulator.emuCycles(1);
+        stackPush(highByte);
+
+        let lowByte = lavishEmulator.cpu.cpuReadRegister(lavishEmulator.cpu.currentInstruction.register1) & 0xFF;
+        lavishEmulator.emuCycles(1);
+        stackPush(lowByte);
+
+        lavishEmulator.emuCycles(1);
+    }
+    processCall() {
+        lavishEmulator.cpu.goToAddress(lavishEmulator.cpu.fetchedData, true);
+    }
+    processRET() {
+        // conditional return
+        if (lavishEmulator.cpu.currentInstruction.condition != undefined){
+            lavishEmulator.emuCycles(1);
+        }
+
+        if (lavishEmulator.cpu.checkCondition()){
+            let lowByte = stackPop();
+            lavishEmulator.emuCycles(1);
+            let highByte = stackPop();
+            lavishEmulator.emuCycles(1);
+
+            let address = (highByte << 8) | lowByte;
+
+            lavishEmulator.cpu.registers.PC = address;
+            lavishEmulator.emuCycles(1);
+        }
+
+    }
+    processRETI(){
+        lavishEmulator.cpu.InterruptMasterEnabled = true;
+        lavishEmulator.cpu.processRET();
+    }
+    processRST() {
+        lavishEmulator.cpu.goToAddress(lavishEmulator.cpu.currentInstruction.param, true);
+    }
+    // 16 bit address and boolean to push to the stack pointer or not
+    goToAddress(address, pushToStack) {
+        let condition = lavishEmulator.cpu.checkCondition();
+        if (condition) {
+            if (pushToStack){
+                lavishEmulator.emuCycles(2);
+                stackPush16(lavishEmulator.cpu.registers.PC);
+            }
+
+            lavishEmulator.cpu.registers.PC = address;
+            lavishEmulator.emuCycles(1);
+        }
+    }
+    is16BitRegister(registerType) {
+        if (registerType == "BC" || 
+            registerType == "DE" || 
+            registerType == "HL" || 
+            registerType == "SP" || 
+            registerType == "AF" ||
+            registerType == "PC") {
+            return true;
+        }
+        return false;
     }
 }
 
@@ -323,6 +492,7 @@ class cpuFetchData extends cpuInstructionsProcess {
                 let highValue = busRead(this.registers.PC + 1);
                 lavishEmulator.emuCycles(1);
 
+                console.log(lowValue, highValue);
                 let address = lowValue | (highValue << 8);
                 
                 this.registers.PC += 2;
@@ -352,7 +522,7 @@ export class cpu extends cpuFetchData {
             H: 0o0,   //HL can be combined to make 16 bit
             L: 0o0,
             SP: 0x0,   //Stack Pointer -> 16 bit
-            PC: 0x64,   //Program Counter/Pointer -> 16 bit, 100 in decimal
+            PC: 0x64 //0x64,   //Program Counter/Pointer -> 16 bit, 100 in decimal
         };
 
         this.isHalted;
@@ -361,7 +531,8 @@ export class cpu extends cpuFetchData {
         this.currentInstruction;
         this.memoryDestination;
         this.destinationIsMemory;
-        this.IntreuptMasterEnabled;
+        this.InterruptMasterEnabled;
+        this.IEregister; // Interrupt Enable Register
     }
     fetchInstruction() {
         // read the current opcode from the bus, then increment the program counter
@@ -370,13 +541,13 @@ export class cpu extends cpuFetchData {
         this.registers.PC++;
 
         if (instructions[parseInt(this.currentOpcode)] == undefined) {
-            //console.log("Unknown opcode: " + this.currentOpcode);
+            console.log("Unknown opcode: " + this.currentOpcode, 'PC: ', this.registers.PC - 1);
             this.currentInstruction = "NONE";
         } else {
-            if (this.processFunctions[this.currentInstruction.name] != undefined) {
-                console.log("Fetched opcode: " + this.currentOpcode, 'PC: ', this.registers.PC - 1);
-            }
             this.currentInstruction = instructions[parseInt(this.currentOpcode)];
+            if (this.processFunctions[this.currentInstruction.name] != undefined) {
+                //console.log("Fetched opcode: " + this.currentOpcode, 'PC: ', this.registers.PC - 1);
+            }
         }
     }
     executeInstruction() {
@@ -393,9 +564,15 @@ export class cpu extends cpuFetchData {
 
 
         if (this.currentInstruction == "NONE" || this.processFunctions[this.currentInstruction.name] == undefined) return;
-        console.log("Running....." + this.currentInstruction.name, 'PC: ', this.registers.PC, 'Fetched Data: ', this.fetchedData);
+        console.log("Running....." + this.currentInstruction.name, 'PC: ', this.registers.PC - 1, 'Fetched Data: ', this.fetchedData);
 
         this.executeInstruction();
     }
-
+    getIERegister() {
+        return this.IEregister;
+    }
+    // Interrupt Enable Register, passes in 8 bit number
+    setIERegister(number) {
+        this.IEregister = number;
+    }
 }

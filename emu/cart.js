@@ -26,6 +26,10 @@ export function cartRead(address) {
     // is .toString(16) in the end to convert the deciaml number holded in the Uint8Array to hex
     // as the Uint8Array only holds decimal numbers
     // FF is highest in 8 bit, and you only return two
+    if (address > lavishEmulator.romData.byteLength) {
+        throw new Error("Address out of bounds: " + address);
+    }
+    //console.log(address)
     return '0x' + lavishEmulator.romData.getUint8(address).toString(16).toUpperCase().padStart(2, '0');
 }
 

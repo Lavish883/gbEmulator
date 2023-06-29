@@ -16,26 +16,84 @@ FF80	FFFE	High RAM (HRAM)
 FFFF	FFFF	Interrupt Enable register (IE)	*/
 
 import {cartRead, cartWrite} from "./cart.js";  
+//import {}
 
 // reads a 16bit address and returns an 8bit value
 // address is a 16bit number
 export function busRead(address){
+    //console.log("Read: " + address.toString(16).toUpperCase());
     // only handles rom
     if (address < 0x8000){
         return cartRead(address);
+    } else if (address < 0xA000){
+        // Char Map/Tile Data, TO DO with PPU
+        return;
+        throw new Error("Not implemented yet");
+    } else if (address < 0xC000){
+        // Cartridge RAM
+        return cartRead(address);
+    } else if (address < 0xE000){
+        // Rom Bank 0, or Bank 1, switchable 
+        // Working RAM, WRAM
+        return lavishEmulator.ram.wramRead(address);
+    } else if (address < 0xFE00){
+        // reserved Echo RAM
+        console.log("Reserved Memory");
+        return 0;
+    } else if (address < 0xFEA0){
+        // Sprite Attribute Table, OAM
+        // To Do
+        return 0;
+    } else if (address < 0xFF00){
+        // Reserved unusable
+        console.log("Reserved Memory");
+        return 0;
+    } else if (address < 0xFF80){
+        // I/O Registers, controllers and so on
+        //console.log(address.toString(16).toUpperCase());
+        return;
+        //throw new Error("Not implemented yet");
+    } else if (address == 0xFFFF){
+        // CPU Enable Register ...
+        // TO DO
+        return lavishEmulator.cpu.getIERegister();
+        throw new Error("Not implemented yet");
+    } else {
+        return lavishEmulator.ram.hramRead(address) // High RAM
     }
 
-
-    alert("Out of bounds, have not implemented memory for address: " + address.toString(16).toUpperCase());
-    return -1;
+    console.log(lavishEmulator.cpu.currentInstruction)
+    console.log(lavishEmulator.cpu.fetchedData)
+    console.log(address.toString(16).toUpperCase())
+    throw new Error("Out of bounds, have not implemented memory for address: " + address.toString(16).toUpperCase());
 }
 
 // reads a 16bit address and writes an 8bit value
 export function busWrite(address, value){
     if (address < 0x8000){
         cartWrite(address, value);
-        return;
+    } else if (address < 0xA000){
+        // Char Map/Tile Data, TO DO with PPU
+        // unsupported for now
+    } else if (address < 0xC000){
+        cartWrite(address, value);
+    } else if (address < 0xE000){
+        lavishEmulator.ram.wramWrite(address, value);
+    } else if (address < 0xFE00){
+        // reserved Echo RAM
+    } else if (address < 0xFEA0){
+        // Sprite Attribute Table, OAM
+        // To Do
+    } else if (address < 0xFF00){
+        // Reserved unusable
+    } else if (address < 0xFF80){
+        // I/O Registers, controllers and so on
+    } else if (address == 0xFFFF){
+        return lavishEmulator.cpu.setIERegister(value);
+    } else {
+        lavishEmulator.ram.hramWrite(address, value); // High RAM
     }
+
 }
 
 export function busRead16(address){

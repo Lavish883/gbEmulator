@@ -17,4 +17,4 @@ lavishEmulator.emuCycles = (incrementBy) => {
 // make it to the window object, so it can be accessed from anywhere
 window.lavishEmulator = lavishEmulator;
 
-emulatorRun("roms/tetris.gb");
+emulatorRun("roms/sml.gb");
